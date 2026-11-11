@@ -1,0 +1,2214 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Vektörel Barkod Stüdyosu — CMYK K:100 Prepress & Ambalaj</title>
+  <meta name="description" content="Ambalaj ve baskı profesyonelleri için GS1 standartlarında EAN-13, UPC-A, ITF-14, Code 128 ve QR Code vektörel barkod üretici. CMYK K:100 saf siyah, SVG kopyalama ve vektörel PDF çıktısı." />
+
+  <!-- PWA & macOS Safari "Dock'a Ekle" (Add to Dock) Meta Etiketleri -->
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+  <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Barkod Stüdyosu" />
+  <meta name="application-name" content="Barkod Stüdyosu" />
+  <meta name="theme-color" content="#1c1c1e" />
+
+  <!-- Kütüphaneler: bwip-js & jsPDF (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/bwip-js@4.5.1/dist/bwip-js-min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+
+  <style>
+    :root {
+      --bg-app: #121214;
+      --bg-sidebar: rgba(28, 28, 30, 0.86);
+      --bg-card: rgba(44, 44, 46, 0.65);
+      --bg-input: rgba(18, 18, 20, 0.85);
+      --bg-desk: #18181b;
+      --desk-grid: rgba(255, 255, 255, 0.04);
+      --border-subtle: rgba(255, 255, 255, 0.09);
+      --border-focus: #0a84ff;
+      --text-primary: #f5f5f7;
+      --text-secondary: #a1a1a6;
+      --text-muted: #6e6e73;
+      --accent: #0a84ff;
+      --accent-hover: #409cff;
+      --success: #30d158;
+      --warning: #ffd60a;
+      --danger: #ff453a;
+      --qz-tint: rgba(10, 132, 255, 0.12);
+      --qz-border: rgba(10, 132, 255, 0.55);
+      --radius-lg: 14px;
+      --radius-md: 10px;
+      --radius-sm: 7px;
+      --shadow-window: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+      --font-mono: "SF Mono", ui-monospace, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    html, body {
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      background: var(--bg-app);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      line-height: 1.45;
+      user-select: none;
+    }
+
+    /* Üst macOS Pencere Çubuğu (Titlebar) */
+    .titlebar {
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 18px;
+      background: rgba(24, 24, 26, 0.88);
+      backdrop-filter: saturate(180%) blur(20px);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      border-bottom: 1px solid var(--border-subtle);
+      -webkit-app-region: drag;
+      z-index: 20;
+    }
+
+    .titlebar-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .traffic-lights {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-right: 4px;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+    }
+    .dot.close { background: #ff5f57; }
+    .dot.minimize { background: #febc2e; }
+    .dot.zoom { background: #28c840; }
+
+    .app-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .app-brand-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    }
+
+    .app-title {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--text-primary);
+    }
+
+    .app-subtitle {
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-weight: 400;
+    }
+
+    .titlebar-center {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      -webkit-app-region: no-drag;
+    }
+
+    .spec-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+    }
+
+    .spec-pill .cmyk-dots {
+      display: inline-flex;
+      gap: 3px;
+    }
+
+    .spec-pill .cmyk-dots span {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+    }
+
+    .spec-pill.k100 {
+      color: #fff;
+      background: rgba(10, 132, 255, 0.14);
+      border-color: rgba(10, 132, 255, 0.35);
+    }
+
+    .titlebar-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      -webkit-app-region: no-drag;
+    }
+
+    /* Ana Çalışma Alanı */
+    .workspace {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      height: calc(100vh - 52px);
+      width: 100%;
+    }
+
+    /* Sol Ayar Paneli (Inspector Sidebar) */
+    .sidebar {
+      background: var(--bg-sidebar);
+      backdrop-filter: saturate(180%) blur(25px);
+      -webkit-backdrop-filter: saturate(180%) blur(25px);
+      border-right: 1px solid var(--border-subtle);
+      padding: 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .sidebar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .sidebar::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 3px;
+    }
+
+    .panel-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .panel-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .panel-badge {
+      font-size: 10.5px;
+      font-family: var(--font-mono);
+      padding: 2px 7px;
+      border-radius: 5px;
+      background: rgba(48, 209, 88, 0.15);
+      color: var(--success);
+      border: 1px solid rgba(48, 209, 88, 0.3);
+      font-weight: 600;
+    }
+
+    /* Segmented Standard Selector */
+    .symbology-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 5px;
+      background: var(--bg-input);
+      padding: 4px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .sym-btn {
+      appearance: none;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      padding: 7px 4px;
+      border-radius: 7px;
+      font-family: var(--font-sans);
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.16s ease;
+      text-align: center;
+    }
+
+    .sym-btn:hover {
+      color: var(--text-primary);
+    }
+
+    .sym-btn.active {
+      background: var(--accent);
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(10, 132, 255, 0.35);
+    }
+
+    /* Form Kontrolleri */
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .field-label-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .field-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .field-hint {
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+    }
+
+    .input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .text-input {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 9px 11px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+      user-select: text;
+    }
+
+    .text-input:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.25);
+    }
+
+    .checkdigit-pill {
+      position: absolute;
+      right: 7px;
+      background: rgba(10, 132, 255, 0.18);
+      border: 1px solid rgba(10, 132, 255, 0.45);
+      color: #64d2ff;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      pointer-events: none;
+    }
+
+    .sample-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .micro-btn {
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      padding: 3px 8px;
+      border-radius: 5px;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .micro-btn:hover {
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    /* Slider ve Sayısal Kontroller */
+    .slider-row {
+      display: grid;
+      grid-template-columns: 1fr 68px;
+      gap: 10px;
+      align-items: center;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.14);
+      border-radius: 999px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+      cursor: pointer;
+      border: 2px solid var(--accent);
+    }
+
+    .num-input {
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      border-radius: var(--radius-sm);
+      padding: 5px 7px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      text-align: right;
+      width: 100%;
+      outline: none;
+    }
+    .num-input:focus {
+      border-color: var(--border-focus);
+    }
+
+    /* Toggle Switch (macOS Style) */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 3px 0;
+    }
+
+    .toggle-label {
+      display: flex;
+      flex-direction: column;
+    }
+    .toggle-label span:first-child {
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .toggle-label span:last-child {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 38px;
+      height: 22px;
+      flex-shrink: 0;
+    }
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider-toggle {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: rgba(255, 255, 255, 0.16);
+      transition: 0.2s;
+      border-radius: 999px;
+    }
+    .slider-toggle:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 2px;
+      bottom: 2px;
+      background-color: white;
+      transition: 0.2s;
+      border-radius: 50%;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+    .switch input:checked + .slider-toggle {
+      background-color: var(--success);
+    }
+    .switch input:checked + .slider-toggle:before {
+      transform: translateX(16px);
+    }
+
+    /* CMYK K:100 Bilgi Kutusu */
+    .cmyk-channels {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-top: 2px;
+    }
+    .channel-box {
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 6px;
+      text-align: center;
+    }
+    .channel-box .ch-name {
+      font-size: 10px;
+      font-weight: 700;
+      display: block;
+    }
+    .channel-box .ch-val {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    .ch-c { color: #00aeef; }
+    .ch-m { color: #ec008c; }
+    .ch-y { color: #fff200; }
+    .ch-k { color: #ffffff; }
+    .channel-box.active-k {
+      border-color: rgba(48, 209, 88, 0.5);
+      background: rgba(48, 209, 88, 0.08);
+    }
+
+    /* Sağ Taraf: Canlı Barkod Önizleme Masası */
+    .preview-desk {
+      position: relative;
+      background-color: var(--bg-desk);
+      background-image:
+        linear-gradient(to right, var(--desk-grid) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--desk-grid) 1px, transparent 1px);
+      background-size: 20px 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+    }
+
+    .preview-desk.light-desk {
+      --bg-desk: #e5e5ea;
+      --desk-grid: rgba(0, 0, 0, 0.05);
+    }
+
+    /* Üst Masa Araç Çubuğu */
+    .desk-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 22px;
+      z-index: 5;
+    }
+
+    .desk-Group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(28, 28, 30, 0.82);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      padding: 5px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border-subtle);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+    }
+
+    .zoom-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .zoom-btn.active, .zoom-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+    }
+
+    /* Orta Sahne / Artboard */
+    .stage-center {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      overflow: auto;
+      position: relative;
+    }
+
+    .artboard-wrapper {
+      position: relative;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+      transform-origin: center center;
+    }
+
+    /* Üst ve Sol Ölçü Çizgileri (Dimension Callouts) */
+    .dim-top {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      margin-bottom: 10px;
+      color: #64d2ff;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      position: relative;
+    }
+    .dim-top::before, .dim-top::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: rgba(100, 210, 255, 0.45);
+    }
+    .dim-top span {
+      padding: 2px 8px;
+      background: rgba(18, 18, 20, 0.85);
+      border: 1px solid rgba(100, 210, 255, 0.35);
+      border-radius: 5px;
+      margin: 0 6px;
+    }
+
+    .artboard-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .dim-side {
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      color: #64d2ff;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 6px 2px;
+      background: rgba(18, 18, 20, 0.85);
+      border: 1px solid rgba(100, 210, 255, 0.35);
+      border-radius: 5px;
+    }
+
+    /* Barkod Kağıt Yüzeyi (Paper Artboard) */
+    .barcode-paper {
+      position: relative;
+      background: #ffffff;
+      border-radius: 6px;
+      box-shadow:
+        0 20px 50px rgba(0, 0, 0, 0.5),
+        0 0 0 1px rgba(0, 0, 0, 0.12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: padding 0.15s ease;
+    }
+
+    .barcode-paper.transparent-paper {
+      background:
+        conic-gradient(#f0f0f0 90deg, #ffffff 90deg 180deg, #f0f0f0 180deg 270deg, #ffffff 270deg)
+        0 0 / 14px 14px;
+    }
+
+    /* Quiet Zone (Güvenlik Payı) Görsel Kılavuzları */
+    .qz-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      display: flex;
+      justify-content: space-between;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .qz-overlay.hidden {
+      display: none;
+    }
+
+    .qz-zone {
+      height: 100%;
+      background: repeating-linear-gradient(
+        -45deg,
+        rgba(10, 132, 255, 0.10),
+        rgba(10, 132, 255, 0.10) 5px,
+        rgba(10, 132, 255, 0.22) 5px,
+        rgba(10, 132, 255, 0.22) 10px
+      );
+      border-right: 1px dashed var(--qz-border);
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 4px;
+    }
+    .qz-zone.right {
+      border-right: none;
+      border-left: 1px dashed var(--qz-border);
+    }
+    .qz-tag {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 700;
+      color: #0055b3;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 1px 4px;
+      border-radius: 3px;
+      border: 1px solid rgba(10, 132, 255, 0.4);
+      white-space: nowrap;
+    }
+
+    #svgContainer {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 0;
+    }
+
+    #svgContainer svg {
+      display: block;
+      max-width: 100%;
+      height: auto;
+    }
+
+    /* Hata / Uyarı Mesajı */
+    .error-banner {
+      margin-top: 14px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      background: rgba(255, 69, 58, 0.18);
+      border: 1px solid rgba(255, 69, 58, 0.45);
+      color: #ff6961;
+      font-size: 12px;
+      font-weight: 500;
+      display: none;
+    }
+
+    /* Alt Aksiyon ve Dışa Aktarma Dock'u */
+    .export-dock {
+      padding: 16px 24px;
+      background: rgba(24, 24, 26, 0.88);
+      backdrop-filter: saturate(180%) blur(20px);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      z-index: 10;
+    }
+
+    .telemetry-bar {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+
+    .telemetry-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .telemetry-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+    .telemetry-value {
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .action-buttons {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn {
+      appearance: none;
+      border: 1px solid var(--border-subtle);
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 10px 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.16s ease;
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.14);
+      transform: translateY(-1px);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn-illustrator {
+      background: rgba(255, 159, 10, 0.16);
+      border-color: rgba(255, 159, 10, 0.45);
+      color: #ffb340;
+    }
+    .btn-illustrator:hover {
+      background: rgba(255, 159, 10, 0.25);
+    }
+
+    .btn-primary {
+      background: linear-gradient(180deg, #1a8cff 0%, #0070e0 100%);
+      border-color: rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+      box-shadow: 0 4px 14px rgba(10, 132, 255, 0.38);
+    }
+    .btn-primary:hover {
+      background: linear-gradient(180deg, #3399ff 0%, #0a7ff0 100%);
+    }
+
+    /* Bildirim Toast */
+    .toast {
+      position: fixed;
+      bottom: 84px;
+      right: 24px;
+      background: rgba(28, 28, 30, 0.95);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(48, 209, 88, 0.45);
+      color: var(--text-primary);
+      padding: 10px 16px;
+      border-radius: 10px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12.5px;
+      font-weight: 600;
+      opacity: 0;
+      transform: translateY(12px);
+      pointer-events: none;
+      transition: all 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+      z-index: 100;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 960px) {
+      html, body {
+        overflow: auto;
+      }
+      .workspace {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+      .export-dock {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .action-buttons {
+        justify-content: stretch;
+        flex-wrap: wrap;
+      }
+      .btn {
+        flex: 1;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Üst macOS Başlık Çubuğu -->
+  <header class="titlebar">
+    <div class="titlebar-left">
+      <div class="traffic-lights" aria-hidden="true">
+        <span class="dot close"></span>
+        <span class="dot minimize"></span>
+        <span class="dot zoom"></span>
+      </div>
+      <div class="app-brand">
+        <img src="./icon.svg" alt="Barkod Stüdyosu İkon" class="app-brand-icon" />
+        <div>
+          <div class="app-title">Vektörel Barkod Stüdyosu</div>
+          <div class="app-subtitle">GS1 Ambalaj &amp; Baskı Prepress Motoru</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="titlebar-center">
+      <div class="spec-pill k100" title="Baskı çıktısında C:0 M:0 Y:0 K:100 saf siyah vektör kullanılır">
+        <span class="cmyk-dots">
+          <span style="background:#00aeef"></span>
+          <span style="background:#ec008c"></span>
+          <span style="background:#fff200"></span>
+          <span style="background:#000000; border:1px solid #fff"></span>
+        </span>
+        CMYK 0 / 0 / 0 / 100 (Saf Siyah)
+      </div>
+      <div class="spec-pill" id="gs1StatusPill">
+        GS1 Quiet Zone Korumalı
+      </div>
+    </div>
+
+    <div class="titlebar-right">
+      <button class="micro-btn" id="toggleDeskThemeBtn" title="Önizleme Masası Kontrastını Değiştir">
+        Masa: Koyu / Açık
+      </button>
+    </div>
+  </header>
+
+  <!-- Ana Çalışma Alanı: Sol Ayar Paneli + Sağ Canlı Önizleme Masası -->
+  <main class="workspace">
+
+    <!-- SOL AYAR PANELİ -->
+    <aside class="sidebar" aria-label="Barkod Ayar Paneli">
+
+      <!-- 1. Barkod Standardı -->
+      <section class="panel-card">
+        <div class="panel-header">
+          <span class="panel-title">1. Barkod Standardı</span>
+          <span class="panel-badge" id="activeSymBadge">EAN-13</span>
+        </div>
+
+        <div class="symbology-grid" role="tablist">
+          <button type="button" class="sym-btn active" data-sym="ean13">EAN-13</button>
+          <button type="button" class="sym-btn" data-sym="upca">UPC-A</button>
+          <button type="button" class="sym-btn" data-sym="itf14">ITF-14</button>
+          <button type="button" class="sym-btn" data-sym="code128">Code 128</button>
+          <button type="button" class="sym-btn" data-sym="qrcode">QR Code</button>
+        </div>
+
+        <!-- Barkod Verisi & Otomatik Check-Digit -->
+        <div class="field-group">
+          <div class="field-label-row">
+            <label class="field-label" for="barcodeInput">Barkod Verisi</label>
+            <span class="field-hint" id="inputLengthHint">12 Hane + 1 Kontrol</span>
+          </div>
+          <div class="input-wrap">
+            <input
+              type="text"
+              id="barcodeInput"
+              class="text-input"
+              value="869123456789"
+              spellcheck="false"
+              autocomplete="off"
+            />
+            <span class="checkdigit-pill" id="checkDigitBadge" title="Otomatik Hesaplanan Kontrol Hanesi">
+              CD: 6
+            </span>
+          </div>
+          <div class="sample-row">
+            <span id="fullEncodedText">Tam Kod: 8691234567896</span>
+            <button type="button" class="micro-btn" id="randomSampleBtn">Örnek Üret</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Ölçek ve Fiziksel Boyutlar (GS1 & Prepress) -->
+      <section class="panel-card">
+        <div class="panel-header">
+          <span class="panel-title">2. Fiziksel Ölçü &amp; GS1 Ölçeği</span>
+          <span class="field-hint" id="xDimReadout">X: 0.330 mm</span>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label-row">
+            <label class="field-label" for="scaleRange">GS1 Büyütme Oranı (%80 – %200)</label>
+            <span class="field-hint" id="scaleLabel">%100</span>
+          </div>
+          <div class="slider-row">
+            <input type="range" id="scaleRange" min="80" max="200" step="5" value="100" />
+            <input type="number" id="scaleInput" class="num-input" min="80" max="200" step="5" value="100" />
+          </div>
+        </div>
+
+        <div class="field-group" id="barHeightGroup">
+          <div class="field-label-row">
+            <label class="field-label" for="heightRange">Çubuk Yüksekliği (mm)</label>
+            <span class="field-hint" id="heightLabel">22.85 mm</span>
+          </div>
+          <div class="slider-row">
+            <input type="range" id="heightRange" min="10" max="60" step="0.5" value="22.85" />
+            <input type="number" id="heightInput" class="num-input" min="10" max="100" step="0.5" value="22.85" />
+          </div>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label-row">
+            <label class="field-label" for="bwrRange" title="Baskıda mürekkep yayılmasını telafi etmek için çubuk kalınlığını mikron düzeyinde inceltir">
+              BWR — Mürekkep Yayılma Telafisi (µm)
+            </label>
+            <span class="field-hint" id="bwrLabel">0 µm</span>
+          </div>
+          <div class="slider-row">
+            <input type="range" id="bwrRange" min="0" max="80" step="5" value="0" />
+            <input type="number" id="bwrInput" class="num-input" min="0" max="120" step="5" value="0" />
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Ambalaj & Baskı Güvenlik Özellikleri -->
+      <section class="panel-card">
+        <div class="panel-header">
+          <span class="panel-title">3. Quiet Zone &amp; Baskı Ayarları</span>
+        </div>
+
+        <div class="toggle-row">
+          <div class="toggle-label">
+            <span>Quiet Zone (Güvenlik Payı) Koruması</span>
+            <span id="qzSpecSubtext">Sol: 11X (3.63 mm) · Sağ: 7X (2.31 mm)</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="enforceQuietZoneToggle" checked />
+            <span class="slider-toggle"></span>
+          </label>
+        </div>
+
+        <div class="toggle-row">
+          <div class="toggle-label">
+            <span>Önizlemede Quiet Zone Alanını Göster</span>
+            <span>Güvenlik boşluğunu mavi taralı gösterir</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="showQzOverlayToggle" checked />
+            <span class="slider-toggle"></span>
+          </label>
+        </div>
+
+        <div class="toggle-row" id="humanTextRow">
+          <div class="toggle-label">
+            <span>Alt Rakamları (OCR-B / Metin) Göster</span>
+            <span>Barkod altındaki okunabilir numara dizisi</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="includeTextToggle" checked />
+            <span class="slider-toggle"></span>
+          </label>
+        </div>
+
+        <div class="toggle-row" id="lightMarginRow">
+          <div class="toggle-label">
+            <span>Işık Boşluğu Okları (&lt; / &gt;)</span>
+            <span>EAN-13 / UPC-A güvenlik sınırı işaretçisi</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="lightMarginToggle" checked />
+            <span class="slider-toggle"></span>
+          </label>
+        </div>
+
+        <div class="toggle-row" id="bearerBarRow" style="display:none;">
+          <div class="toggle-label">
+            <span>ITF-14 Koli Çerçevesi (Bearer Bar)</span>
+            <span>Oluklu mukavva klişe baskı koruma çerçevesi</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="bearerBarToggle" checked />
+            <span class="slider-toggle"></span>
+          </label>
+        </div>
+
+        <div class="toggle-row">
+          <div class="toggle-label">
+            <span>PDF Kesim İşaretleri (Crop Marks)</span>
+            <span>Vektörel PDF çıktısına köşe kros çizgileri ekler</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="cropMarksToggle" checked />
+            <span class="slider-toggle"></span>
+          </label>
+        </div>
+
+        <div class="toggle-row">
+          <div class="toggle-label">
+            <span>Beyaz Zemin Kutusu (Knockout Box)</span>
+            <span>Kapalıysa yalnızca şeffaf zeminli çubuklar aktarılır</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="whiteBgToggle" checked />
+            <span class="slider-toggle"></span>
+          </label>
+        </div>
+      </section>
+
+      <!-- 4. CMYK K:100 Renk Ayrımı Doğrulaması -->
+      <section class="panel-card">
+        <div class="panel-header">
+          <span class="panel-title">4. Renk Ayrımı (DeviceCMYK)</span>
+          <span class="panel-badge">100% KEY BLACK</span>
+        </div>
+        <div class="cmyk-channels">
+          <div class="channel-box">
+            <span class="ch-name ch-c">CYAN</span>
+            <span class="ch-val">0%</span>
+          </div>
+          <div class="channel-box">
+            <span class="ch-name ch-m">MAGENTA</span>
+            <span class="ch-val">0%</span>
+          </div>
+          <div class="channel-box">
+            <span class="ch-name ch-y">YELLOW</span>
+            <span class="ch-val">0%</span>
+          </div>
+          <div class="channel-box active-k">
+            <span class="ch-name ch-k">BLACK (K)</span>
+            <span class="ch-val">100%</span>
+          </div>
+        </div>
+      </section>
+
+    </aside>
+
+    <!-- SAĞ CANLI BARKOD ÖNİZLEME MASASI -->
+    <section class="preview-desk" id="previewDesk" aria-label="Canlı Barkod Önizleme Masası">
+
+      <!-- Masa Üstü Zoom ve Görünüm Kontrolleri -->
+      <div class="desk-toolbar">
+        <div class="desk-Group">
+          <span style="font-size:11px; color:var(--text-secondary); padding-left:4px;">Canlı Vektör Masası</span>
+          <span style="color:var(--border-subtle)">|</span>
+          <span id="liveStandardTitle" style="font-size:11.5px; font-weight:600; color:#fff;">GS1 EAN-13 Perakende Standardı</span>
+        </div>
+
+        <div class="desk-Group" role="group" aria-label="Yakınlaştırma">
+          <button type="button" class="zoom-btn" data-zoom="1">100%</button>
+          <button type="button" class="zoom-btn active" data-zoom="1.5">150%</button>
+          <button type="button" class="zoom-btn" data-zoom="2">200%</button>
+          <button type="button" class="zoom-btn" data-zoom="2.6">260%</button>
+        </div>
+      </div>
+
+      <!-- Sahne / Artboard -->
+      <div class="stage-center">
+        <div class="artboard-wrapper" id="artboardWrapper" style="transform: scale(1.5);">
+          <div class="dim-top">
+            <span id="dimWidthBadge">37.29 mm</span>
+          </div>
+
+          <div class="artboard-row">
+            <div class="dim-side" id="dimHeightBadge">25.93 mm</div>
+
+            <div class="barcode-paper" id="barcodePaper">
+              <div class="qz-overlay" id="qzOverlay">
+                <div class="qz-zone left" id="qzLeftZone">
+                  <span class="qz-tag" id="qzLeftTag">QZ</span>
+                </div>
+                <div class="qz-zone right" id="qzRightZone">
+                  <span class="qz-tag" id="qzRightTag">QZ</span>
+                </div>
+              </div>
+              <div id="svgContainer"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="error-banner" id="errorBanner"></div>
+      </div>
+
+      <!-- Alt Aksiyon ve Dışa Aktarma Çubuğu -->
+      <footer class="export-dock">
+        <div class="telemetry-bar">
+          <div class="telemetry-item">
+            <span class="telemetry-label">Toplam Ebat (G × Y)</span>
+            <span class="telemetry-value" id="telDimensions">37.29 × 25.93 mm</span>
+          </div>
+          <div class="telemetry-item">
+            <span class="telemetry-label">Kontrol Hanesi</span>
+            <span class="telemetry-value" id="telCheckDigit">Otomatik (6)</span>
+          </div>
+          <div class="telemetry-item">
+            <span class="telemetry-label">Quiet Zone (Sol / Sağ)</span>
+            <span class="telemetry-value" id="telQuietZone">3.63 mm / 2.31 mm</span>
+          </div>
+          <div class="telemetry-item">
+            <span class="telemetry-label">Çıktı Форmatı</span>
+            <span class="telemetry-value" style="color:var(--success);">Saf Vektör · CMYK K:100</span>
+          </div>
+        </div>
+
+        <div class="action-buttons">
+          <button type="button" class="btn btn-illustrator" id="copySvgBtn" title="Adobe Illustrator veya Figma'ya doğrudan ⌘V ile yapıştırmak için vektör SVG kopyalar">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            SVG Kopyala (Illustrator)
+          </button>
+
+          <button type="button" class="btn" id="downloadSvgBtn">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            SVG İndir
+          </button>
+
+          <button type="button" class="btn btn-primary" id="downloadPdfBtn">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="12" y1="18" x2="12" y2="12"></line>
+              <polyline points="9 15 12 18 15 15"></polyline>
+            </svg>
+            Vektörel PDF İndir (CMYK K:100)
+          </button>
+        </div>
+      </footer>
+
+    </section>
+  </main>
+
+  <!-- Bildirim Toast -->
+  <div class="toast" id="toast" role="status" aria-live="polite">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#30d158" stroke-width="2.5">
+      <polyline points="20 6 9 17 4 12"></polyline>
+    </svg>
+    <span id="toastMessage">SVG panoya kopyalandı!</span>
+  </div>
+
+  <script>
+    /**
+     * Vektörel Barkod Stüdyosu — GS1 Ambalaj & Baskı Motoru
+     * - EAN-13, UPC-A, ITF-14 için Modulo-10 otomatik kontrol hanesi (check-digit) hesaplar.
+     * - bwip-js ile ham modül geometrisini üretir ve Illustrator/Prepress uyumlu
+     *   milimetrik (<rect> tabanlı, CMYK K:100) saf vektör SVG ve DeviceCMYK PDF oluşturur.
+     */
+    const SYMBOLOGIES = {
+      ean13: {
+        name: "EAN-13",
+        title: "GS1 EAN-13 Perakende Standardı",
+        defaultInput: "869123456789",
+        hint: "12 Hane + 1 Kontrol",
+        baseXmm: 0.330,        // GS1 %100 ölçekte 1 modül = 0.330 mm
+        defaultBarHeight: 22.85,
+        qzLeftModules: 11,     // GS1 EAN-13 sol Quiet Zone = 11X (3.63 mm)
+        qzRightModules: 7,     // GS1 EAN-13 sağ Quiet Zone = 7X (2.31 mm)
+        hasCheckDigit: true,
+        dataLength: 12,
+        samples: ["869123456789", "869050401234", "400638133393", "590123412345", "301762042200"]
+      },
+      upca: {
+        name: "UPC-A",
+        title: "GS1 UPC-A Kuzey Amerika Perakende Standardı",
+        defaultInput: "03600029145",
+        hint: "11 Hane + 1 Kontrol",
+        baseXmm: 0.330,
+        defaultBarHeight: 22.85,
+        qzLeftModules: 9,      // GS1 UPC-A sol Quiet Zone = 9X (2.97 mm)
+        qzRightModules: 9,     // GS1 UPC-A sağ Quiet Zone = 9X (2.97 mm)
+        hasCheckDigit: true,
+        dataLength: 11,
+        samples: ["03600029145", "01234567890", "04210000526", "61414100003"]
+      },
+      itf14: {
+        name: "ITF-14",
+        title: "GS1 ITF-14 Lojistik ve Dış Koli Standardı",
+        defaultInput: "1869123456789",
+        hint: "13 Hane + 1 Kontrol",
+        baseXmm: 0.495,        // Koli baskısı için yaygın modül genişliği
+        defaultBarHeight: 31.75,
+        qzLeftModules: 10,     // Minimum 10X Quiet Zone
+        qzRightModules: 10,
+        hasCheckDigit: true,
+        dataLength: 13,
+        samples: ["1869123456789", "2869050401234", "3400638133393"]
+      },
+      code128: {
+        name: "Code 128",
+        title: "GS1 / ISO Code 128 Endüstriyel & Lojistik Barkod",
+        defaultInput: "LOT-2026-TR90",
+        hint: "Alfanümerik (Otomatik Mod-103)",
+        baseXmm: 0.330,
+        defaultBarHeight: 18.0,
+        qzLeftModules: 10,
+        qzRightModules: 10,
+        hasCheckDigit: false,
+        samples: ["LOT-2026-TR90", "SKU-869-K100", "PALET-004921", "SN20261111A"]
+      },
+      qrcode: {
+        name: "QR Code",
+        title: "ISO/IEC 18004 2D Vektörel QR Code (CMYK K:100)",
+        defaultInput: "https://gs1.org.tr/barkod/8691234567896",
+        hint: "URL veya Metin (4X Quiet Zone)",
+        baseXmm: 0.600,
+        defaultBarHeight: 24.0,
+        qzLeftModules: 4,
+        qzRightModules: 4,
+        hasCheckDigit: false,
+        samples: [
+          "https://gs1.org.tr/barkod/8691234567896",
+          "010869123456789610LOT2026",
+          "https://example.com/ambalaj-k100"
+        ]
+      }
+    };
+
+    // Uygulama Durumu (State)
+    const state = {
+      sym: "ean13",
+      rawInput: "869123456789",
+      scalePercent: 100,
+      barHeightMm: 22.85,
+      bwrMicrons: 0,
+      enforceQuietZone: true,
+      showQzOverlay: true,
+      includeText: true,
+      lightMarginIndicator: true,
+      bearerBar: true,
+      cropMarks: true,
+      whiteBg: true,
+      zoom: 1.5,
+      lastGeometry: null,
+      lastIllustratorSvg: ""
+    };
+
+    // DOM Referansları
+    const els = {
+      symBtns: document.querySelectorAll(".sym-btn"),
+      activeSymBadge: document.getElementById("activeSymBadge"),
+      barcodeInput: document.getElementById("barcodeInput"),
+      inputLengthHint: document.getElementById("inputLengthHint"),
+      checkDigitBadge: document.getElementById("checkDigitBadge"),
+      fullEncodedText: document.getElementById("fullEncodedText"),
+      randomSampleBtn: document.getElementById("randomSampleBtn"),
+      scaleRange: document.getElementById("scaleRange"),
+      scaleInput: document.getElementById("scaleInput"),
+      scaleLabel: document.getElementById("scaleLabel"),
+      xDimReadout: document.getElementById("xDimReadout"),
+      barHeightGroup: document.getElementById("barHeightGroup"),
+      heightRange: document.getElementById("heightRange"),
+      heightInput: document.getElementById("heightInput"),
+      heightLabel: document.getElementById("heightLabel"),
+      bwrRange: document.getElementById("bwrRange"),
+      bwrInput: document.getElementById("bwrInput"),
+      bwrLabel: document.getElementById("bwrLabel"),
+      enforceQuietZoneToggle: document.getElementById("enforceQuietZoneToggle"),
+      showQzOverlayToggle: document.getElementById("showQzOverlayToggle"),
+      qzSpecSubtext: document.getElementById("qzSpecSubtext"),
+      includeTextToggle: document.getElementById("includeTextToggle"),
+      lightMarginToggle: document.getElementById("lightMarginToggle"),
+      bearerBarToggle: document.getElementById("bearerBarToggle"),
+      cropMarksToggle: document.getElementById("cropMarksToggle"),
+      whiteBgToggle: document.getElementById("whiteBgToggle"),
+      humanTextRow: document.getElementById("humanTextRow"),
+      lightMarginRow: document.getElementById("lightMarginRow"),
+      bearerBarRow: document.getElementById("bearerBarRow"),
+      liveStandardTitle: document.getElementById("liveStandardTitle"),
+      artboardWrapper: document.getElementById("artboardWrapper"),
+      barcodePaper: document.getElementById("barcodePaper"),
+      qzOverlay: document.getElementById("qzOverlay"),
+      qzLeftZone: document.getElementById("qzLeftZone"),
+      qzRightZone: document.getElementById("qzRightZone"),
+      qzLeftTag: document.getElementById("qzLeftTag"),
+      qzRightTag: document.getElementById("qzRightTag"),
+      svgContainer: document.getElementById("svgContainer"),
+      dimWidthBadge: document.getElementById("dimWidthBadge"),
+      dimHeightBadge: document.getElementById("dimHeightBadge"),
+      errorBanner: document.getElementById("errorBanner"),
+      telDimensions: document.getElementById("telDimensions"),
+      telCheckDigit: document.getElementById("telCheckDigit"),
+      telQuietZone: document.getElementById("telQuietZone"),
+      copySvgBtn: document.getElementById("copySvgBtn"),
+      downloadSvgBtn: document.getElementById("downloadSvgBtn"),
+      downloadPdfBtn: document.getElementById("downloadPdfBtn"),
+      toggleDeskThemeBtn: document.getElementById("toggleDeskThemeBtn"),
+      previewDesk: document.getElementById("previewDesk"),
+      zoomBtns: document.querySelectorAll(".zoom-btn"),
+      toast: document.getElementById("toast"),
+      toastMessage: document.getElementById("toastMessage")
+    };
+
+    /**
+     * GS1 Modulo-10 Check-Digit (Kontrol Hanesi) Hesaplayıcı
+     * EAN-13 (12 hane -> +1), UPC-A (11 hane -> +1), ITF-14 (13 hane -> +1)
+     */
+    function calculateGS1CheckDigit(digitsOnly) {
+      let sum = 0;
+      const len = digitsOnly.length;
+      for (let i = 0; i < len; i++) {
+        const digit = parseInt(digitsOnly.charAt(len - 1 - i), 10);
+        // Sağdan sola 1. pozisyon (index 0) ağırlığı 3, 2. pozisyon ağırlığı 1
+        const weight = (i % 2 === 0) ? 3 : 1;
+        sum += digit * weight;
+      }
+      return (10 - (sum % 10)) % 10;
+    }
+
+    /**
+     * Kullanıcı girdisini standart kurallarına göre normalize eder ve kontrol hanesini hesaplar
+     */
+    function resolveBarcodePayload(sym, rawValue) {
+      const cfg = SYMBOLOGIES[sym];
+      const trimmed = (rawValue || "").trim();
+
+      if (cfg.hasCheckDigit) {
+        const digits = trimmed.replace(/\D/g, "");
+        const targetLen = cfg.dataLength;
+
+        if (digits.length < targetLen) {
+          return {
+            valid: false,
+            error: `${cfg.name} için en az ${targetLen} rakam giriniz (Şu an: ${digits.length} rakam).`
+          };
+        }
+
+        const bodyDigits = digits.slice(0, targetLen);
+        const checkDigit = calculateGS1CheckDigit(bodyDigits);
+        const fullCode = `${bodyDigits}${checkDigit}`;
+
+        return {
+          valid: true,
+          bodyDigits,
+          checkDigit: String(checkDigit),
+          fullCode
+        };
+      }
+
+      if (!trimmed) {
+        return {
+          valid: false,
+          error: "Lütfen barkod verisi giriniz."
+        };
+      }
+
+      return {
+        valid: true,
+        bodyDigits: trimmed,
+        checkDigit: null,
+        fullCode: trimmed
+      };
+    }
+
+    /**
+     * bwip-js'nin ürettiği SVG içerisindeki dikey çubuk/modül path'lerini ayrıştırır
+     * ve gerçek milimetrik <rect> vektörlerine dönüştürür.
+     * Böylece Illustrator'a yapıştırıldığında ve PDF'e aktarıldığında
+     * stroke (çizgi) değil, %100 saf kapalı vektör kutular (filled paths) elde edilir.
+     */
+    function extractVectorBarsFromBwipSvg(svgText) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(svgText, "image/svg+xml");
+      const svgEl = doc.querySelector("svg");
+      if (!svgEl) {
+        throw new Error("SVG oluşturulamadı.");
+      }
+
+      const viewBoxAttr = svgEl.getAttribute("viewBox") || "0 0 100 100";
+      const vbParts = viewBoxAttr.trim().split(/[\s,]+/).map(Number);
+      const vbWidth = vbParts[2] || 100;
+      const vbHeight = vbParts[3] || 100;
+
+      const rects = [];
+      const paths = svgEl.querySelectorAll("path");
+
+      paths.forEach((p) => {
+        const d = p.getAttribute("d") || "";
+        const strokeWidth = parseFloat(p.getAttribute("stroke-width") || "0");
+
+        if (strokeWidth > 0) {
+          // bwip-js çubukları "M x y0 L x y1" dikey stroke segmentleri olarak yazar
+          const segRegex = /M\s*([-\d.]+)\s+([-\d.]+)\s*L\s*([-\d.]+)\s+([-\d.]+)/gi;
+          let match;
+          while ((match = segRegex.exec(d)) !== null) {
+            const x1 = parseFloat(match[1]);
+            const y1 = parseFloat(match[2]);
+            const x2 = parseFloat(match[3]);
+            const y2 = parseFloat(match[4]);
+
+            if (Math.abs(x1 - x2) < 0.001) {
+              const top = Math.min(y1, y2);
+              const bottom = Math.max(y1, y2);
+              rects.push({
+                x: x1 - strokeWidth / 2,
+                y: top,
+                w: strokeWidth,
+                h: bottom - top
+              });
+            } else if (Math.abs(y1 - y2) < 0.001) {
+              const left = Math.min(x1, x2);
+              const right = Math.max(x1, x2);
+              rects.push({
+                x: left,
+                y: y1 - strokeWidth / 2,
+                w: right - left,
+                h: strokeWidth
+              });
+            }
+          }
+        } else {
+          // QR Code veya kapalı poligon blokları ("M x y h w v h h -w Z" vb.)
+          const subpaths = d.match(/M[^M]+/gi) || [];
+          subpaths.forEach((sp) => {
+            const nums = (sp.match(/[-\d.]+/g) || []).map(Number);
+            if (nums.length >= 4) {
+              const mx = nums[0];
+              const my = nums[1];
+              // bwip-js QR code hücrelerini M x y h w v h h -w z veya L komutlarıyla çizer
+              if (/h/i.test(sp) && /v/i.test(sp)) {
+                const hMatch = sp.match(/h\s*([-\d.]+)/i);
+                const vMatch = sp.match(/v\s*([-\d.]+)/i);
+                if (hMatch && vMatch) {
+                  const w = parseFloat(hMatch[1]);
+                  const h = parseFloat(vMatch[1]);
+                  rects.push({
+                    x: w >= 0 ? mx : mx + w,
+                    y: h >= 0 ? my : my + h,
+                    w: Math.abs(w),
+                    h: Math.abs(h)
+                  });
+                }
+              }
+            }
+          });
+        }
+      });
+
+      // Bitişik veya üst üste binen dikey modülleri temizle
+      return {
+        vbWidth,
+        vbHeight,
+        rects
+      };
+    }
+
+    /**
+     * Seçilen barkod standardına göre tüm milimetrik geometriyi ve
+     * CMYK K:100 Illustrator/Prepress SVG çıktısını üretir.
+     */
+    function buildBarcodeVectorGeometry() {
+      const sym = state.sym;
+      const cfg = SYMBOLOGIES[sym];
+      const resolved = resolveBarcodePayload(sym, state.rawInput);
+
+      if (!resolved.valid) {
+        showError(resolved.error);
+        return;
+      }
+      hideError();
+
+      // UI Check-digit ve tam kod bilgisini güncelle
+      if (cfg.hasCheckDigit) {
+        els.checkDigitBadge.style.display = "inline-block";
+        els.checkDigitBadge.textContent = `CD: ${resolved.checkDigit}`;
+        els.fullEncodedText.textContent = `Tam Kod: ${resolved.fullCode}`;
+        els.telCheckDigit.textContent = `Otomatik (${resolved.checkDigit})`;
+      } else {
+        els.checkDigitBadge.style.display = "none";
+        els.fullEncodedText.textContent = `Veri: ${resolved.fullCode}`;
+        els.telCheckDigit.textContent = sym === "code128" ? "Dahili Mod-103" : "ECC Seviye M";
+      }
+
+      const scaleFactor = state.scalePercent / 100;
+      const xDimMm = cfg.baseXmm * scaleFactor;
+      const bwrMm = (state.bwrMicrons || 0) / 1000; // mikrondan milimetreye
+
+      // bwip-js'den saf bar geometrisini al (yazıyı kendimiz GS1 tipografisiyle vektörel/milimetrik yerleştiriyoruz)
+      const bwipOpts = {
+        bcid: sym,
+        text: resolved.fullCode,
+        scale: 2,
+        includetext: false,
+        paddingwidth: 0,
+        paddingheight: 0
+      };
+
+      if (sym !== "qrcode") {
+        bwipOpts.height = 20;
+      } else {
+        bwipOpts.eclevel = "M";
+      }
+
+      let rawSvg;
+      try {
+        rawSvg = bwipjs.toSVG(bwipOpts);
+      } catch (err) {
+        showError("Barkod oluşturma hatası: " + (err.message || String(err)));
+        return;
+      }
+
+      const parsed = extractVectorBarsFromBwipSvg(rawSvg);
+      if (!parsed.rects.length) {
+        showError("Barkod modülleri ayrıştırılamadı.");
+        return;
+      }
+
+      // Ham modül koordinat sınırlarını bul
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      parsed.rects.forEach((r) => {
+        if (r.x < minX) minX = r.x;
+        if (r.x + r.w > maxX) maxX = r.x + r.w;
+        if (r.y < minY) minY = r.y;
+        if (r.y + r.h > maxY) maxY = r.y + r.h;
+      });
+
+      // En ince çubuğu (1X modül birimi) tespit et
+      let minBarW = Infinity;
+      parsed.rects.forEach((r) => {
+        if (r.w > 0.01 && r.w < minBarW) minBarW = r.w;
+      });
+      if (!isFinite(minBarW) || minBarW <= 0) minBarW = 1;
+
+      const totalBarModules = (maxX - minX) / minBarW;
+      const qzLeftMod = state.enforceQuietZone ? cfg.qzLeftModules : 2;
+      const qzRightMod = state.enforceQuietZone ? cfg.qzRightModules : 2;
+
+      const qzLeftMm = qzLeftMod * xDimMm;
+      const qzRightMm = qzRightMod * xDimMm;
+      const barsWidthMm = totalBarModules * xDimMm;
+
+      const topPadMm = sym === "qrcode" ? (qzLeftMm) : (1.5 * scaleFactor);
+      const textZoneMm = (sym !== "qrcode" && state.includeText) ? (3.2 * scaleFactor) : (sym === "qrcode" ? qzLeftMm : 1.5 * scaleFactor);
+      const guardDropMm = (sym === "ean13" || sym === "upca") && state.includeText ? (1.65 * scaleFactor) : 0;
+
+      const barHeightMm = sym === "qrcode" ? barsWidthMm : state.barHeightMm;
+      const totalWidthMm = qzLeftMm + barsWidthMm + qzRightMm;
+      const totalHeightMm = topPadMm + barHeightMm + textZoneMm;
+
+      // Her bir çubuğu gerçek milimetrik koordinatlara dönüştür
+      const mmRects = [];
+      const fullCode = resolved.fullCode;
+
+      parsed.rects.forEach((r) => {
+        const modX = (r.x - minX) / minBarW;
+        const modW = r.w / minBarW;
+
+        let xMm = qzLeftMm + modX * xDimMm;
+        let wMm = modW * xDimMm;
+
+        // BWR (Bar Width Reduction - Mürekkep Yayılma Telafisi)
+        if (bwrMm > 0 && wMm > bwrMm * 1.4) {
+          xMm += bwrMm / 2;
+          wMm -= bwrMm;
+        }
+
+        if (sym === "qrcode") {
+          const modY = (r.y - minY) / minBarW;
+          const modH = r.h / minBarW;
+          let yMm = topPadMm + modY * xDimMm;
+          let hMm = modH * xDimMm;
+          if (bwrMm > 0 && hMm > bwrMm * 1.4) {
+            yMm += bwrMm / 2;
+            hMm -= bwrMm;
+          }
+          mmRects.push({ x: xMm, y: yMm, w: wMm, h: hMm, isGuard: false });
+        } else {
+          // EAN-13 ve UPC-A için sol, orta ve sağ kılavuz çubuklarını (Guard Bars) uzat
+          let isGuard = false;
+          if (sym === "ean13") {
+            // EAN-13: 95 modül. Sol guard: 0..3, Orta guard: 45..50, Sağ guard: 92..95
+            if (modX < 3.1 || (modX >= 44.8 && modX <= 50.2) || modX >= 91.8) {
+              isGuard = true;
+            }
+          } else if (sym === "upca") {
+            // UPC-A: 95 modül. Sol guard + ilk sistem hanesi: 0..11, Orta: 45..50, Sağ: 84..95
+            if (modX < 10.2 || (modX >= 44.8 && modX <= 50.2) || modX >= 84.8) {
+              isGuard = true;
+            }
+          }
+
+          const hMm = barHeightMm + (isGuard ? guardDropMm : 0);
+          mmRects.push({
+            x: xMm,
+            y: topPadMm,
+            w: wMm,
+            h: hMm,
+            isGuard
+          });
+        }
+      });
+
+      // ITF-14 Koli Çerçevesi (Bearer Bar)
+      const bearerRects = [];
+      if (sym === "itf14" && state.bearerBar) {
+        const bt = 1.2 * scaleFactor; // Çerçeve kalınlığı (mm)
+        const bx = Math.max(0.4, qzLeftMm * 0.35);
+        const bw = totalWidthMm - bx * 2;
+        const by = topPadMm;
+        const bh = barHeightMm;
+        // Üst, Alt, Sol, Sağ çerçeve çubukları
+        bearerRects.push({ x: bx, y: by - bt, w: bw, h: bt });
+        bearerRects.push({ x: bx, y: by + bh, w: bw, h: bt });
+        bearerRects.push({ x: bx, y: by - bt, w: bt, h: bh + bt * 2 });
+        bearerRects.push({ x: bx + bw - bt, y: by - bt, w: bt, h: bh + bt * 2 });
+      }
+
+      // Alt Okunabilir Metin (OCR-B / GS1 Yerleşimi)
+      const textItems = [];
+      const fontSizeMm = 2.75 * scaleFactor;
+      const textBaselineMm = topPadMm + barHeightMm + fontSizeMm * 0.92;
+
+      if (sym !== "qrcode" && state.includeText) {
+        if (sym === "ean13" && fullCode.length === 13) {
+          // 1. Hane sol Quiet Zone'da
+          textItems.push({
+            text: fullCode[0],
+            x: qzLeftMm * 0.45,
+            y: textBaselineMm,
+            size: fontSizeMm,
+            anchor: "middle",
+            spacing: 0
+          });
+          // Sol grup (2..7. haneler: modül 3..45 ortası)
+          textItems.push({
+            text: fullCode.slice(1, 7),
+            x: qzLeftMm + 24 * xDimMm,
+            y: textBaselineMm,
+            size: fontSizeMm,
+            anchor: "middle",
+            spacing: 0.35 * scaleFactor
+          });
+          // Sağ grup (8..13. haneler: modül 50..92 ortası)
+          textItems.push({
+            text: fullCode.slice(7, 13),
+            x: qzLeftMm + 71 * xDimMm,
+            y: textBaselineMm,
+            size: fontSizeMm,
+            anchor: "middle",
+            spacing: 0.35 * scaleFactor
+          });
+          // Sağ Quiet Zone '>' işareti
+          if (state.lightMarginIndicator) {
+            textItems.push({
+              text: ">",
+              x: qzLeftMm + barsWidthMm + qzRightMm * 0.58,
+              y: textBaselineMm,
+              size: fontSizeMm,
+              anchor: "middle",
+              spacing: 0
+            });
+          }
+        } else if (sym === "upca" && fullCode.length === 12) {
+          if (state.lightMarginIndicator) {
+            textItems.push({
+              text: "<",
+              x: qzLeftMm * 0.25,
+              y: textBaselineMm,
+              size: fontSizeMm * 0.85,
+              anchor: "middle",
+              spacing: 0
+            });
+          }
+          // İlk sistem hanesi
+          textItems.push({
+            text: fullCode[0],
+            x: qzLeftMm * 0.62,
+            y: textBaselineMm,
+            size: fontSizeMm * 0.85,
+            anchor: "middle",
+            spacing: 0
+          });
+          // Sol 5 hane (modül 11..45)
+          textItems.push({
+            text: fullCode.slice(1, 6),
+            x: qzLeftMm + 28 * xDimMm,
+            y: textBaselineMm,
+            size: fontSizeMm,
+            anchor: "middle",
+            spacing: 0.35 * scaleFactor
+          });
+          // Sağ 5 hane (modül 50..84)
+          textItems.push({
+            text: fullCode.slice(6, 11),
+            x: qzLeftMm + 67 * xDimMm,
+            y: textBaselineMm,
+            size: fontSizeMm,
+            anchor: "middle",
+            spacing: 0.35 * scaleFactor
+          });
+          // Son kontrol hanesi
+          textItems.push({
+            text: fullCode[11],
+            x: qzLeftMm + barsWidthMm + qzRightMm * 0.38,
+            y: textBaselineMm,
+            size: fontSizeMm * 0.85,
+            anchor: "middle",
+            spacing: 0
+          });
+          if (state.lightMarginIndicator) {
+            textItems.push({
+              text: ">",
+              x: qzLeftMm + barsWidthMm + qzRightMm * 0.76,
+              y: textBaselineMm,
+              size: fontSizeMm * 0.85,
+              anchor: "middle",
+              spacing: 0
+            });
+          }
+        } else {
+          // ITF-14 ve Code 128 için ortalanmış metin
+          const formatted = sym === "itf14" && fullCode.length === 14
+            ? `${fullCode[0]}  ${fullCode.slice(1, 3)}  ${fullCode.slice(3, 8)}  ${fullCode.slice(8, 13)}  ${fullCode[13]}`
+            : fullCode;
+          textItems.push({
+            text: formatted,
+            x: totalWidthMm / 2,
+            y: textBaselineMm + (sym === "itf14" && state.bearerBar ? 1.2 * scaleFactor : 0),
+            size: fontSizeMm * 0.95,
+            anchor: "middle",
+            spacing: 0.25 * scaleFactor
+          });
+        }
+      }
+
+      const geometry = {
+        sym,
+        symName: cfg.name,
+        fullCode,
+        checkDigit: resolved.checkDigit,
+        totalWidthMm,
+        totalHeightMm,
+        qzLeftMm,
+        qzRightMm,
+        qzLeftMod,
+        qzRightMod,
+        xDimMm,
+        mmRects,
+        bearerRects,
+        textItems
+      };
+
+      state.lastGeometry = geometry;
+      renderPreviewAndExportSvg(geometry);
+    }
+
+    /**
+     * Hem ekran önizlemesi hem de Illustrator/Prepress için CMYK K:100 nitelikli
+     * saf vektörel SVG oluşturur.
+     */
+    function renderPreviewAndExportSvg(g) {
+      const w = g.totalWidthMm.toFixed(3);
+      const h = g.totalHeightMm.toFixed(3);
+      const pxPerMm = 4.2; // Ekran önizlemesi için yüksek keskinlik çarpanı
+      const screenW = (g.totalWidthMm * pxPerMm).toFixed(1);
+      const screenH = (g.totalHeightMm * pxPerMm).toFixed(1);
+
+      const bgRectMarkup = state.whiteBg
+        ? `  <g id="QuietZone_Paper_White">\n    <rect x="0" y="0" width="${w}" height="${h}" fill="#FFFFFF" />\n  </g>\n`
+        : "";
+
+      const barsMarkup = g.mmRects
+        .map(
+          (r) =>
+            `    <rect x="${r.x.toFixed(4)}" y="${r.y.toFixed(4)}" width="${r.w.toFixed(4)}" height="${r.h.toFixed(4)}" fill="#000000" style="fill:#000000; fill:device-cmyk(0,0,0,1);" />`
+        )
+        .join("\n");
+
+      const bearerMarkup = g.bearerRects.length
+        ? `  <g id="ITF14_Bearer_Bars_K100" fill="#000000">\n` +
+          g.bearerRects
+            .map(
+              (r) =>
+                `    <rect x="${r.x.toFixed(4)}" y="${r.y.toFixed(4)}" width="${r.w.toFixed(4)}" height="${r.h.toFixed(4)}" fill="#000000" style="fill:#000000; fill:device-cmyk(0,0,0,1);" />`
+            )
+            .join("\n") +
+          `\n  </g>\n`
+        : "";
+
+      const textMarkup = g.textItems.length
+        ? `  <g id="Human_Readable_OCR_K100" fill="#000000" font-family="'OCR-B', 'SF Mono', 'Courier New', monospace" font-weight="600">\n` +
+          g.textItems
+            .map((t) => {
+              const esc = t.text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+              const ls = t.spacing ? ` letter-spacing="${t.spacing.toFixed(3)}"` : "";
+              return `    <text x="${t.x.toFixed(4)}" y="${t.y.toFixed(4)}" font-size="${t.size.toFixed(3)}" text-anchor="${t.anchor}"${ls} fill="#000000" style="fill:#000000; fill:device-cmyk(0,0,0,1);">${esc}</text>`;
+            })
+            .join("\n") +
+          `\n  </g>\n`
+        : "";
+
+      // Illustrator & Prepress için fiziksel mm birimli SVG
+      const illustratorSvg =
+`<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Generator: Vektorel Barkod Studyosu | Standard: ${g.symName} | Code: ${g.fullCode} | Color: CMYK C:0 M:0 Y:0 K:100 -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="${w}mm" height="${h}mm" viewBox="0 0 ${w} ${h}">
+  <title>${g.symName} - ${g.fullCode} (CMYK K:100)</title>
+  <desc>GS1 Quiet Zone Protected Vector Barcode. X-dim: ${g.xDimMm.toFixed(3)}mm, Total: ${w}x${h}mm, Ink: DeviceCMYK(0,0,0,1)</desc>
+${bgRectMarkup}${bearerMarkup}  <g id="Barcode_Bars_CMYK_K100" fill="#000000">
+${barsMarkup}
+  </g>
+${textMarkup}</svg>`;
+
+      state.lastIllustratorSvg = illustratorSvg;
+
+      // Ekran önizlemesi için SVG
+      const screenSvg =
+`<svg xmlns="http://www.w3.org/2000/svg" width="${screenW}" height="${screenH}" viewBox="0 0 ${w} ${h}">
+${bearerMarkup}  <g fill="#000000">
+${barsMarkup}
+  </g>
+${textMarkup}</svg>`;
+
+      els.svgContainer.innerHTML = screenSvg;
+      els.barcodePaper.classList.toggle("transparent-paper", !state.whiteBg);
+
+      // Quiet Zone görsel katmanını güncelle
+      const showQz = state.showQzOverlay;
+      els.qzOverlay.classList.toggle("hidden", !showQz);
+      const leftPct = (g.qzLeftMm / g.totalWidthMm) * 100;
+      const rightPct = (g.qzRightMm / g.totalWidthMm) * 100;
+      els.qzLeftZone.style.width = `${leftPct.toFixed(2)}%`;
+      els.qzRightZone.style.width = `${rightPct.toFixed(2)}%`;
+      els.qzLeftTag.textContent = `${g.qzLeftMm.toFixed(1)}mm`;
+      els.qzRightTag.textContent = `${g.qzRightMm.toFixed(1)}mm`;
+
+      // Telemetri ve etiketleri güncelle
+      els.dimWidthBadge.textContent = `${g.totalWidthMm.toFixed(2)} mm`;
+      els.dimHeightBadge.textContent = `${g.totalHeightMm.toFixed(2)} mm`;
+      els.telDimensions.textContent = `${g.totalWidthMm.toFixed(2)} × ${g.totalHeightMm.toFixed(2)} mm`;
+      els.telQuietZone.textContent = `${g.qzLeftMm.toFixed(2)} mm / ${g.qzRightMm.toFixed(2)} mm`;
+      els.xDimReadout.textContent = `X: ${g.xDimMm.toFixed(3)} mm`;
+      els.qzSpecSubtext.textContent = `Sol: ${g.qzLeftMod}X (${g.qzLeftMm.toFixed(2)} mm) · Sağ: ${g.qzRightMod}X (${g.qzRightMm.toFixed(2)} mm)`;
+    }
+
+    /**
+     * Vektörel PDF İndir (CMYK K:100 Saf Siyah)
+     * jsPDF içerisine doğrudan PDF DeviceCMYK ("0 0 0 1 k" / "0 0 0 1 K") operatörlerini
+     * enjekte ederek Adobe Illustrator ve Acrobat Pro'da %100 K (Saf Siyah) ayrımı verir.
+     */
+    function exportVectorPdfCMYK() {
+      const g = state.lastGeometry;
+      if (!g) return;
+
+      const { jsPDF } = window.jspdf;
+      const marginMm = state.cropMarks ? 6.0 : 0.0;
+      const pageW = g.totalWidthMm + marginMm * 2;
+      const pageH = g.totalHeightMm + marginMm * 2;
+
+      const orientation = pageW >= pageH ? "l" : "p";
+      const doc = new jsPDF({
+        orientation,
+        unit: "mm",
+        format: [pageW, pageH],
+        compress: true
+      });
+
+      const ox = marginMm;
+      const oy = marginMm;
+
+      // 1. Beyaz Zemin Kutusu (C:0 M:0 Y:0 K:0)
+      if (state.whiteBg) {
+        doc.internal.write("0 0 0 0 k");
+        doc.rect(ox, oy, g.totalWidthMm, g.totalHeightMm, "F");
+      }
+
+      // 2. Kesim İşaretleri (Crop / Trim Marks - CMYK K:100)
+      if (state.cropMarks) {
+        doc.internal.write("0 0 0 1 K");
+        doc.setLineWidth(0.15);
+        const bleed = 1.2;
+        const markLen = 3.5;
+        const x0 = ox, x1 = ox + g.totalWidthMm;
+        const y0 = oy, y1 = oy + g.totalHeightMm;
+
+        // Sol Üst
+        doc.line(x0 - bleed - markLen, y0, x0 - bleed, y0);
+        doc.line(x0, y0 - bleed - markLen, x0, y0 - bleed);
+        // Sağ Üst
+        doc.line(x1 + bleed, y0, x1 + bleed + markLen, y0);
+        doc.line(x1, y0 - bleed - markLen, x1, y0 - bleed);
+        // Sol Alt
+        doc.line(x0 - bleed - markLen, y1, x0 - bleed, y1);
+        doc.line(x0, y1 + bleed, x0, y1 + bleed + markLen);
+        // Sağ Alt
+        doc.line(x1 + bleed, y1, x1 + bleed + markLen, y1);
+        doc.line(x1, y1 + bleed, x1, y1 + bleed + markLen);
+      }
+
+      // 3. Barkod Çubukları & Bearer Bars — DeviceCMYK 0 0 0 1 k (C:0 M:0 Y:0 K:100 Saf Siyah)
+      doc.internal.write("0 0 0 1 k");
+      doc.internal.write("0 0 0 1 K");
+
+      g.bearerRects.forEach((r) => {
+        doc.rect(ox + r.x, oy + r.y, r.w, r.h, "F");
+      });
+
+      g.mmRects.forEach((r) => {
+        doc.rect(ox + r.x, oy + r.y, r.w, r.h, "F");
+      });
+
+      // 4. Alt Rakamlar (CMYK K:100)
+      if (g.textItems.length) {
+        doc.setFont("courier", "bold");
+        g.textItems.forEach((t) => {
+          // mm font boyutunu pt birimine çevir (1 mm = 2.83465 pt)
+          const ptSize = t.size * 2.83465;
+          doc.setFontSize(ptSize);
+          doc.internal.write("0 0 0 1 k");
+          doc.text(t.text, ox + t.x, oy + t.y, {
+            align: t.anchor === "middle" ? "center" : "left",
+            charSpace: t.spacing || 0
+          });
+        });
+      }
+
+      const safeName = g.fullCode.replace(/[^a-zA-Z0-9_-]/g, "_");
+      doc.save(`Barkod_${g.symName}_${safeName}_CMYK_K100.pdf`);
+      showToast("CMYK K:100 Vektörel PDF indirildi!");
+    }
+
+    /**
+     * SVG İndir (.svg)
+     */
+    function downloadSvgFile() {
+      const g = state.lastGeometry;
+      if (!g || !state.lastIllustratorSvg) return;
+
+      const blob = new Blob([state.lastIllustratorSvg], { type: "image/svg+xml;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const safeName = g.fullCode.replace(/[^a-zA-Z0-9_-]/g, "_");
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Barkod_${g.symName}_${safeName}_K100.svg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast("Vektörel SVG dosyası indirildi!");
+    }
+
+    /**
+     * Adobe Illustrator'a Doğrudan Yapıştırmak İçin SVG Kopyala (Clipboard)
+     */
+    async function copySvgToClipboard() {
+      if (!state.lastIllustratorSvg) return;
+
+      try {
+        await navigator.clipboard.writeText(state.lastIllustratorSvg);
+        showToast("SVG panoya kopyalandı — Illustrator'da ⌘V ile doğrudan yapıştırabilirsiniz!");
+      } catch (err) {
+        // Fallback textarea copy
+        const ta = document.createElement("textarea");
+        ta.value = state.lastIllustratorSvg;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        showToast("SVG panoya kopyalandı — Illustrator'da ⌘V ile yapıştırabilirsiniz!");
+      }
+    }
+
+    function showToast(msg) {
+      els.toastMessage.textContent = msg;
+      els.toast.classList.add("show");
+      clearTimeout(showToast._timer);
+      showToast._timer = setTimeout(() => {
+        els.toast.classList.remove("show");
+      }, 3200);
+    }
+
+    function showError(msg) {
+      els.errorBanner.textContent = msg;
+      els.errorBanner.style.display = "block";
+    }
+
+    function hideError() {
+      els.errorBanner.style.display = "none";
+    }
+
+    /**
+     * Standart değiştiğinde arayüz kontrollerini ve varsayılan değerleri günceller
+     */
+    function selectSymbology(sym) {
+      state.sym = sym;
+      const cfg = SYMBOLOGIES[sym];
+
+      els.symBtns.forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.sym === sym);
+      });
+
+      els.activeSymBadge.textContent = cfg.name;
+      els.liveStandardTitle.textContent = cfg.title;
+      els.inputLengthHint.textContent = cfg.hint;
+
+      state.rawInput = cfg.defaultInput;
+      els.barcodeInput.value = cfg.defaultInput;
+
+      state.barHeightMm = cfg.defaultBarHeight;
+      els.heightRange.value = cfg.defaultBarHeight;
+      els.heightInput.value = cfg.defaultBarHeight;
+      els.heightLabel.textContent = `${cfg.defaultBarHeight} mm`;
+
+      // QR Code'da çubuk yüksekliği ve alt metin satırlarını gizle
+      const isQr = sym === "qrcode";
+      els.barHeightGroup.style.display = isQr ? "none" : "flex";
+      els.humanTextRow.style.display = isQr ? "none" : "flex";
+      els.lightMarginRow.style.display = (sym === "ean13" || sym === "upca") ? "flex" : "none";
+      els.bearerBarRow.style.display = sym === "itf14" ? "flex" : "none";
+
+      buildBarcodeVectorGeometry();
+    }
+
+    // Event Listeners
+    els.symBtns.forEach((btn) => {
+      btn.addEventListener("click", () => selectSymbology(btn.dataset.sym));
+    });
+
+    els.barcodeInput.addEventListener("input", (e) => {
+      state.rawInput = e.target.value;
+      buildBarcodeVectorGeometry();
+    });
+
+    els.randomSampleBtn.addEventListener("click", () => {
+      const cfg = SYMBOLOGIES[state.sym];
+      const list = cfg.samples;
+      const current = els.barcodeInput.value;
+      const filtered = list.filter((s) => s !== current);
+      const pick = filtered[Math.floor(Math.random() * filtered.length)] || list[0];
+      state.rawInput = pick;
+      els.barcodeInput.value = pick;
+      buildBarcodeVectorGeometry();
+    });
+
+    function syncScale(val) {
+      const v = Math.min(200, Math.max(80, Number(val) || 100));
+      state.scalePercent = v;
+      els.scaleRange.value = v;
+      els.scaleInput.value = v;
+      els.scaleLabel.textContent = `%${v}`;
+      buildBarcodeVectorGeometry();
+    }
+
+    els.scaleRange.addEventListener("input", (e) => syncScale(e.target.value));
+    els.scaleInput.addEventListener("change", (e) => syncScale(e.target.value));
+
+    function syncHeight(val) {
+      const v = Math.min(100, Math.max(8, Number(val) || 22.85));
+      state.barHeightMm = v;
+      els.heightRange.value = v;
+      els.heightInput.value = v;
+      els.heightLabel.textContent = `${v} mm`;
+      buildBarcodeVectorGeometry();
+    }
+
+    els.heightRange.addEventListener("input", (e) => syncHeight(e.target.value));
+    els.heightInput.addEventListener("change", (e) => syncHeight(e.target.value));
+
+    function syncBwr(val) {
+      const v = Math.min(120, Math.max(0, Number(val) || 0));
+      state.bwrMicrons = v;
+      els.bwrRange.value = v;
+      els.bwrInput.value = v;
+      els.bwrLabel.textContent = `${v} µm`;
+      buildBarcodeVectorGeometry();
+    }
+
+    els.bwrRange.addEventListener("input", (e) => syncBwr(e.target.value));
+    els.bwrInput.addEventListener("change", (e) => syncBwr(e.target.value));
+
+    els.enforceQuietZoneToggle.addEventListener("change", (e) => {
+      state.enforceQuietZone = e.target.checked;
+      buildBarcodeVectorGeometry();
+    });
+
+    els.showQzOverlayToggle.addEventListener("change", (e) => {
+      state.showQzOverlay = e.target.checked;
+      if (state.lastGeometry) renderPreviewAndExportSvg(state.lastGeometry);
+    });
+
+    els.includeTextToggle.addEventListener("change", (e) => {
+      state.includeText = e.target.checked;
+      buildBarcodeVectorGeometry();
+    });
+
+    els.lightMarginToggle.addEventListener("change", (e) => {
+      state.lightMarginIndicator = e.target.checked;
+      buildBarcodeVectorGeometry();
+    });
+
+    els.bearerBarToggle.addEventListener("change", (e) => {
+      state.bearerBar = e.target.checked;
+      buildBarcodeVectorGeometry();
+    });
+
+    els.cropMarksToggle.addEventListener("change", (e) => {
+      state.cropMarks = e.target.checked;
+    });
+
+    els.whiteBgToggle.addEventListener("change", (e) => {
+      state.whiteBg = e.target.checked;
+      if (state.lastGeometry) renderPreviewAndExportSvg(state.lastGeometry);
+    });
+
+    els.zoomBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        els.zoomBtns.forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        const z = parseFloat(btn.dataset.zoom || "1.5");
+        state.zoom = z;
+        els.artboardWrapper.style.transform = `scale(${z})`;
+      });
+    });
+
+    els.toggleDeskThemeBtn.addEventListener("click", () => {
+      els.previewDesk.classList.toggle("light-desk");
+    });
+
+    els.copySvgBtn.addEventListener("click", copySvgToClipboard);
+    els.downloadSvgBtn.addEventListener("click", downloadSvgFile);
+    els.downloadPdfBtn.addEventListener("click", exportVectorPdfCMYK);
+
+    // Başlangıçta ilk barkodu üret
+    window.addEventListener("DOMContentLoaded", () => {
+      buildBarcodeVectorGeometry();
+    });
+  </script>
+</body>
+</html>

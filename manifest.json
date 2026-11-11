@@ -1,0 +1,34 @@
+{
+  "name": "Vektörel Barkod Stüdyosu — Ambalaj & Baskı (CMYK K:100)",
+  "short_name": "Barkod Stüdyosu",
+  "description": "GS1 standartlarında EAN-13, UPC-A, ITF-14, Code 128 ve QR Code üreten, CMYK K:100 saf siyah ve Quiet Zone destekli profesyonel vektörel barkod stüdyosu.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "background_color": "#1c1c1e",
+  "theme_color": "#1c1c1e",
+  "orientation": "any",
+  "lang": "tr",
+  "categories": ["design", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "./apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
